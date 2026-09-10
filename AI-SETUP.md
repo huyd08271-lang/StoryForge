@@ -1,34 +1,22 @@
-# StoryForge AI v1
+# StoryForge AI — Gemini
 
-Bản này nối nút **Gợi ý cho đoạn này** và **Trợ lý AI** vào OpenAI thông qua Vercel Function `/api/ai`.
+Bản này chuyển AI backend từ OpenAI sang Google Gemini.
 
-## 1. Vercel Environment Variables
+## Vercel Environment Variables
 
-Vào **Project → Settings → Environment Variables** và thêm:
+Thêm:
 
-- `OPENAI_API_KEY` = API key OpenAI của mày
-- `OPENAI_MODEL` = `gpt-5-mini` (hoặc model mà tài khoản/API của mày hỗ trợ)
+- `GEMINI_API_KEY` = API key tạo từ Google AI Studio
+- `GEMINI_MODEL` = `gemini-3.1-flash-lite`
 
-Chọn **Production**. Có thể chọn Preview nếu muốn test preview.
+Chọn Production (và Preview nếu muốn test preview).
 
-Không đặt `OPENAI_API_KEY` thành biến `VITE_...` và không đưa key vào `main.jsx`.
+Không đặt Gemini API key trong biến có tiền tố `VITE_`.
 
-## 2. Deploy
+Sau khi thay code và push GitHub, Vercel sẽ deploy lại. Nếu chỉ thay Environment Variables, hãy Redeploy.
 
-Commit/push source lên GitHub. Vercel sẽ build lại. Nếu chỉ thêm environment variable, cần redeploy để deployment nhận biến mới.
+## Lưu ý
 
-## 3. Cách dùng
+Gói Gemini Pro dùng trên ứng dụng Gemini và Gemini API là hai hệ thống tính phí/quyền truy cập riêng. Bản này mặc định dùng `gemini-3.1-flash-lite` để phù hợp với Gemini API Free Tier; không dùng API của `gemini-3.1-pro-preview` trong cấu hình miễn phí.
 
-Trong một chương:
-
-1. Viết đoạn văn.
-2. Bấm **Gợi ý cho đoạn này**.
-3. Chọn `Viết tiếp`, `Gợi ý diễn biến`, `Gợi ý lời thoại` hoặc `Kiểm tra logic`.
-4. AI đọc context của truyện từ Supabase: Canon, nhân vật, thế giới, timeline, ghi chú và chương hiện tại.
-5. Bấm **Chèn vào bản thảo** nếu muốn đưa kết quả vào chương.
-
-Trong menu **Trợ lý AI**, mày có thể hỏi trực tiếp về truyện.
-
-## 4. Bảo mật
-
-API key chỉ nằm ở Vercel server function. Không commit `.env` hoặc API key vào GitHub.
+Không commit API key vào GitHub.

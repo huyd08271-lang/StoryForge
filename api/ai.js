@@ -1,4 +1,4 @@
-const OPENAI_URL = "https://api.openai.com/v1/responses";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 function compact(value, max = 12000) {
   const text = typeof value === "string" ? value : JSON.stringify(value ?? "", null, 2);
@@ -7,14 +7,18 @@ function compact(value, max = 12000) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) return res.status(500).json({ error: "Chưa cấu hình OPENAI_API_KEY trên Vercel." });
+
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(500).json({ error: "Chưa cấu hình GEMINI_API_KEY trên Vercel." });
 
   try {
     const body = req.body || {};
     const { action = "chat", prompt = "", context = {}, selection = "" } = body;
-    const model = process.env.OPENAI_MODEL || "gpt-5-mini";
-    if (!prompt.trim() && action === "chat") return res.status(400).json({ error: "Thiếu nội dung yêu cầu." });
+    const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+
+    if (!prompt.trim() && action === "chat") {
+      return res.status(400).json({ error: "Thiếu nội dung yêu cầu." });
+    }
 
     const system = `
 Mày là Trợ lý AI của StoryForge, một ứng dụng viết tiểu thuyết.
@@ -59,28 +63,56 @@ ${compact(selection, 7000)}
 `;
 
     const userPrompt = `YÊU CẦU CỦA TÁC GIẢ (action=${action}):\n${prompt}`;
-    const response = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        input: [
-          { role: "system", content: [{ type: "input_text", text: system }] },
-          { role: "user", content: [{ type: "input_text", text: userPrompt }] }
-        ]
-      })
-    });
+
+    const response = await fetch(
+      `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": key
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: system }]
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: userPrompt }]
+            }
+          ],
+          generationConfig: {
+            thinkingConfig: {
+              thinkingLevel: "low"
+            }
+          }
+        })
+      }
+    );
 
     const data = await response.json();
+
     if (!response.ok) {
-      const message = data?.error?.message || "OpenAI API trả về lỗi.";
+      const message =
+        data?.error?.message ||
+        data?.error?.status ||
+        "Gemini API trả về lỗi.";
       return res.status(response.status).json({ error: message });
     }
 
-    const text = data.output_text || (data.output || []).flatMap(x => x.content || []).map(x => x.text || "").join("\n").trim();
-    return res.status(200).json({ text: text || "AI không trả về nội dung." });
+    const text = (data?.candidates?.[0]?.content?.parts || [])
+      .map(part => part?.text || "")
+      .join("")
+      .trim();
+
+    return res.status(200).json({
+      text: text || "AI không trả về nội dung."
+    });
   } catch (error) {
-    console.error("StoryForge AI error", error);
-    return res.status(500).json({ error: error?.message || "Lỗi máy chủ AI." });
+    console.error("StoryForge Gemini AI error", error);
+    return res.status(500).json({
+      error: error?.message || "Lỗi máy chủ AI."
+    });
   }
 }
