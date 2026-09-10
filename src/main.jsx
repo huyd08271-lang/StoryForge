@@ -1,3 +1,40 @@
+
+/* STORYFORGE_V4_AI_HISTORY_START */
+const SF_AI_HISTORY_KEY = "storyforge_ai_history_v1";
+const SF_WORKSPACE_KEY = "storyforge_workspace_v1";
+
+function sfLoadAIHistory() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SF_AI_HISTORY_KEY) || "[]");
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+function sfSaveAIHistory(items) {
+  try { localStorage.setItem(SF_AI_HISTORY_KEY, JSON.stringify(items.slice(-100))); } catch {}
+}
+function sfLoadWorkspace() {
+  try { return JSON.parse(localStorage.getItem(SF_WORKSPACE_KEY) || "null"); } catch { return null; }
+}
+function sfSaveWorkspace(v) {
+  try { localStorage.setItem(SF_WORKSPACE_KEY, JSON.stringify(v)); } catch {}
+}
+/* STORYFORGE_V4_AI_HISTORY_END */
+
+function sfRememberAIConversation({storyId, chapterId, mode, prompt, result}) {
+  const history = sfLoadAIHistory();
+  history.push({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    storyId: storyId || null,
+    chapterId: chapterId || null,
+    mode: mode || "suggest",
+    prompt: prompt || "",
+    result: result || "",
+    createdAt: new Date().toISOString()
+  });
+  sfSaveAIHistory(history);
+}
+
+
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
@@ -47,24 +84,62 @@ function Loading({text,sub}){return <div className="center"><div className="card
 function Pending(){return <div className="center"><div className="card"><div className="logo">⏳</div><h1>Đang chờ Admin duyệt</h1><p>Tài khoản đã đăng ký. Khi Admin duyệt, mày có thể vào StoryForge.</p><button onClick={()=>supabase.auth.signOut()}>Đăng xuất</button></div></div>}
 
 function Studio({user,prof}){
-  const [stories,setStories]=useState([]),[story,setStory]=useState(null),[chapters,setChapters]=useState([]),[chapter,setChapter]=useState(null),[tab,setTab]=useState("dashboard"),[refresh,setRefresh]=useState(0);
-  const [storyModal,setStoryModal]=useState(false),[storyForm,setStoryForm]=useState({title:"",genre:"Giả tưởng",description:""}),[busy,setBusy]=useState(false);
+  const studioKey=`storyforge_studio_${user?.id||"guest"}`;
+  let savedStudio={};
+  try{savedStudio=JSON.parse(localStorage.getItem(studioKey)||"{}")||{}}catch(e){}
+  const [stories,setStories]=useState([]),[story,setStory]=useState(null),[chapters,setChapters]=useState([]),[chapter,setChapter]=useState(null),[tab,setTab]=useState(savedStudio.tab||"dashboard"),[refresh,setRefresh]=useState(0);
+  const [storyModal,setStoryModal]=useState(false),[storyEditModal,setStoryEditModal]=useState(false),[storyForm,setStoryForm]=useState({title:"",genre:"Giả tưởng",description:""}),[storyEditForm,setStoryEditForm]=useState({title:"",genre:"Giả tưởng",description:""}),[busy,setBusy]=useState(false);
   const reloadStories=async()=>{const {data,error}=await supabase.from("stories").select("*").order("updated_at",{ascending:false});if(error)console.error(error);else setStories(data||[])};
   const reloadChapters=async id=>{if(!id){setChapters([]);return}const {data,error}=await supabase.from("chapters").select("*").eq("story_id",id).order("number");if(error)console.error(error);else setChapters(data||[])};
   useEffect(()=>{reloadStories()},[refresh]);
-  useEffect(()=>{reloadChapters(story?.id)},[story?.id,refresh]);
+
+  // Khôi phục đúng màn hình đang làm dở sau khi đổi tab, khóa màn hình,
+  // nghe điện thoại hoặc trình duyệt phải tải lại trang.
+  useEffect(()=>{
+    if(!stories.length||!savedStudio.storyId)return;
+    const found=stories.find(s=>s.id===savedStudio.storyId);
+    if(found)setStory(found);
+  },[stories]);
+
+  useEffect(()=>{
+    reloadChapters(story?.id);
+  },[story?.id,refresh]);
+
+  useEffect(()=>{
+    if(!story)return;
+    try{
+      localStorage.setItem(studioKey,JSON.stringify({
+        storyId:story.id,
+        chapterId:chapter?.id||null,
+        tab
+      }));
+    }catch(e){}
+  },[story?.id,chapter?.id,tab,studioKey]);
+
+  useEffect(()=>{
+    if(!chapters.length||!savedStudio.chapterId)return;
+    const found=chapters.find(c=>c.id===savedStudio.chapterId);
+    if(found)setChapter(found);
+  },[chapters]);
   const createStory=async()=>{if(!storyForm.title.trim())return;setBusy(true);const {data,error}=await supabase.from("stories").insert({title:storyForm.title.trim(),owner_id:user.id,genre:storyForm.genre,description:storyForm.description.trim()}).select().single();setBusy(false);if(error){alert(error.message);return}setStoryModal(false);setStoryForm({title:"",genre:"Giả tưởng",description:""});setStory(data);setTab("chapters");setRefresh(x=>x+1)};
-  const updateStory=async patch=>{if(!story)return;const {data,error}=await supabase.from("stories").update(patch).eq("id",story.id).select().single();if(error){alert(error.message);return}setStory(data);setStories(s=>s.map(x=>x.id===data.id?data:x))};
+  const updateStory=async patch=>{if(!story)return;const {data,error}=await supabase.from("stories").update(patch).eq("id",story.id).select().single();if(error){alert(error.message);return}setStory(data);setStories(s=>s.map(x=>x.id===data.id?data:x));setStoryEditModal(false)};
+  const openStoryEdit=()=>{if(!story)return;setStoryEditForm({title:story.title||"",genre:story.genre||"Giả tưởng",description:story.description||""});setStoryEditModal(true)};
+  const saveStoryEdit=async()=>{if(!storyEditForm.title.trim())return;await updateStory({title:storyEditForm.title.trim(),genre:storyEditForm.genre,description:storyEditForm.description.trim()})};
   const deleteStory=async s=>{if(!confirm(`Xóa truyện “${s.title}” và toàn bộ dữ liệu liên quan?`))return;const {error}=await supabase.from("stories").delete().eq("id",s.id);if(error){alert(error.message);return}if(story?.id===s.id){setStory(null);setChapter(null);setTab("dashboard")}setRefresh(x=>x+1)};
   const createChapter=async()=>{if(!story)return;const n=chapters.length?Math.max(...chapters.map(c=>c.number))+1:1;const {data,error}=await supabase.from("chapters").insert({story_id:story.id,number:n,title:`Chương ${n}`,content:""}).select().single();if(error){alert(error.message);return}setChapters(c=>[...c,data].sort((a,b)=>a.number-b.number));setChapter(data);setTab("editor")};
   const deleteChapter=async c=>{if(!confirm(`Xóa ${c.title}?`))return;const {error}=await supabase.from("chapters").delete().eq("id",c.id);if(error){alert(error.message);return}if(chapter?.id===c.id)setChapter(null);setRefresh(x=>x+1)};
-  const openStory=s=>{setStory(s);setChapter(null);setTab("chapters")};
+  const openStory=s=>{
+    setStory(s);setChapter(null);setTab("chapters");
+    try{localStorage.setItem(studioKey,JSON.stringify({storyId:s.id,chapterId:null,tab:"chapters"}))}catch(e){}
+  };
   const logout=()=>supabase.auth.signOut();
   const go=id=>{setTab(id);if(id!=="editor"&&id!=="chapters")setChapter(null)};
-  return <div className="app"><aside><div className="brand"><span>✦</span><div><strong>StoryForge</strong><small>Online Writing Studio</small></div></div><nav>{[["dashboard","Tổng quan"],["chapters","Chương"],["characters","Nhân vật"],["world","Thế giới"],["timeline","Dòng thời gian"],["notes","Hộp thư đến"],["canon","Canon"],["ai","Trợ lý AI"]].map(([id,label])=><button key={id} className={tab===id?"active":""} onClick={()=>go(id)}><span>{icon[id]}</span>{label}</button>)}{prof.is_admin&&<button className={tab==="admin"?"active":""} onClick={()=>go("admin")}><span>{icon.admin}</span>Quản trị</button>}</nav><div className="account"><b>{prof.is_admin?"Admin":prof.display_name||user.email}</b><small>{user.email}</small><button onClick={logout}>Đăng xuất</button></div></aside><main><header><div><span className="eyebrow">WRITING STUDIO ONLINE</span><h1>{story?story.title:"Ý tưởng bắt đầu từ đây."}</h1></div>{story&&<div className="headerActions"><button className="ghost" onClick={()=>{setStory(null);setChapter(null);setTab("dashboard")}}>← Danh sách truyện</button><button className="soft" onClick={()=>setStoryModal(true)}>＋ Truyện mới</button></div>}</header>{tab==="dashboard"&&<Dashboard stories={stories} onNew={()=>setStoryModal(true)} onOpen={openStory} onDelete={deleteStory}/>} {tab==="chapters"&&<Chapters story={story} chapters={chapters} onNew={createChapter} onOpen={c=>{setChapter(c);setTab("editor")}} onDelete={deleteChapter} onEditTitle={async(c,t)=>{const {data,error}=await supabase.from("chapters").update({title:t.trim()||c.title}).eq("id",c.id).select().single();if(!error){setChapters(cs=>cs.map(x=>x.id===c.id?data:x));if(chapter?.id===c.id)setChapter(data)}}}/>} {tab==="editor"&&<Editor story={story} chapter={chapter} setChapter={setChapter} setChapters={setChapters}/>} {moduleNames[tab]&&<DataModule story={story} type={tab}/>} {tab==="ai"&&<AI story={story} chapter={chapter}/>} {tab==="admin"&&prof.is_admin&&<Admin/>}</main>{storyModal&&<StoryModal form={storyForm} setForm={setStoryForm} onClose={()=>setStoryModal(false)} onSave={createStory} busy={busy}/>}</div>
+  return <div className="app"><aside><div className="brand"><span>✦</span><div><strong>StoryForge</strong><small>Online Writing Studio</small></div></div><nav>{[["dashboard","Tổng quan"],["chapters","Chương"],["characters","Nhân vật"],["world","Thế giới"],["timeline","Dòng thời gian"],["notes","Hộp thư đến"],["canon","Canon"],["ai","Trợ lý AI"]].map(([id,label])=><button key={id} className={tab===id?"active":""} onClick={()=>go(id)}><span>{icon[id]}</span>{label}</button>)}{prof.is_admin&&<button className={tab==="admin"?"active":""} onClick={()=>go("admin")}><span>{icon.admin}</span>Quản trị</button>}</nav><div className="account"><b>{prof.is_admin?"Admin":prof.display_name||user.email}</b><small>{user.email}</small><button onClick={logout}>Đăng xuất</button></div></aside><main><header><div><span className="eyebrow">WRITING STUDIO ONLINE</span><h1>{story?story.title:"Ý tưởng bắt đầu từ đây."}</h1></div>{story&&<div className="headerActions"><button className="ghost" onClick={()=>{setStory(null);setChapter(null);setTab("dashboard");try{localStorage.removeItem(studioKey)}catch(e){}}}>← Danh sách truyện</button><button className="soft" onClick={openStoryEdit}>✎ Sửa thông tin</button><button className="soft" onClick={()=>setStoryModal(true)}>＋ Truyện mới</button></div>}</header>{tab==="dashboard"&&<Dashboard stories={stories} onNew={()=>setStoryModal(true)} onOpen={openStory} onDelete={deleteStory}/>} {tab==="chapters"&&<Chapters story={story} chapters={chapters} onNew={createChapter} onOpen={c=>{setChapter(c);setTab("editor")}} onDelete={deleteChapter} onEditTitle={async(c,t)=>{const {data,error}=await supabase.from("chapters").update({title:t.trim()||c.title}).eq("id",c.id).select().single();if(!error){setChapters(cs=>cs.map(x=>x.id===c.id?data:x));if(chapter?.id===c.id)setChapter(data)}}}/>} {tab==="editor"&&<Editor story={story} chapter={chapter} setChapter={setChapter} setChapters={setChapters}/>} {moduleNames[tab]&&<DataModule story={story} type={tab}/>} {tab==="ai"&&<AI story={story} chapter={chapter}/>} {tab==="admin"&&prof.is_admin&&<Admin/>}</main>{storyModal&&<StoryModal form={storyForm} setForm={setStoryForm} onClose={()=>setStoryModal(false)} onSave={createStory} busy={busy}/>} {storyEditModal&&<StoryEditModal form={storyEditForm} setForm={setStoryEditForm} onClose={()=>setStoryEditModal(false)} onSave={saveStoryEdit} busy={busy}/>}</div>
 }
 
 function Dashboard({stories,onNew,onOpen,onDelete}){return <section><div className="hero"><div><span className="eyebrow">YOUR WORKSPACE</span><h2>Viết, lưu và tiếp tục ở bất kỳ đâu.</h2><p>Dữ liệu nằm trên cloud, không phụ thuộc máy tính đang bật.</p></div><button onClick={onNew}>＋ Tạo truyện mới</button></div><div className="sectionTitle"><h2>Truyện của bạn</h2><span>{stories.length} truyện</span></div>{!stories.length?<div className="empty"><div className="emptyIcon">✦</div><h3>Chưa có truyện nào</h3><p>Tạo truyện đầu tiên để bắt đầu xây dựng thế giới của mày.</p><button onClick={onNew}>Tạo truyện đầu tiên</button></div>:<div className="grid">{stories.map(s=><article className="story" key={s.id}><div className="storyTop"><span className="pill">{s.genre||"Chưa phân loại"}</span><button className="iconBtn" title="Xóa" onClick={()=>onDelete(s)}>⋯</button></div><h3>{s.title}</h3><p>{s.description||"Chưa có mô tả."}</p><button onClick={()=>onOpen(s)}>Mở truyện →</button></article>)}</div>}</section>}
+
+function StoryEditModal({form,setForm,onClose,onSave,busy}){return <Modal title="Sửa thông tin truyện" onClose={onClose}><label>Tên truyện<input autoFocus value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Tên truyện"/></label><label>Thể loại<select value={form.genre} onChange={e=>setForm({...form,genre:e.target.value})}><option>Giả tưởng</option><option>Quỷ dị / Kinh dị</option><option>Trinh thám</option><option>Võ thuật</option><option>Khoa học viễn tưởng</option><option>Lãng mạn</option><option>Khác</option></select></label><label>Mô tả truyện<textarea rows="10" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Bổ sung hoặc chỉnh sửa mô tả truyện…"/></label><div className="modalActions"><button className="ghost" onClick={onClose}>Hủy</button><button disabled={busy||!form.title.trim()} onClick={onSave}>{busy?"Đang lưu…":"Lưu thay đổi"}</button></div></Modal>}
 
 function StoryModal({form,setForm,onClose,onSave,busy}){return <Modal title="Tạo truyện mới" onClose={onClose}><label>Tên truyện<input autoFocus value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ví dụ: Việt Nam Quỷ Dị"/></label><label>Thể loại<select value={form.genre} onChange={e=>setForm({...form,genre:e.target.value})}><option>Giả tưởng</option><option>Quỷ dị / Kinh dị</option><option>Trinh thám</option><option>Võ thuật</option><option>Khoa học viễn tưởng</option><option>Lãng mạn</option><option>Khác</option></select></label><label>Mô tả<textarea rows="4" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Ý tưởng chính của truyện…"/></label><div className="modalActions"><button className="ghost" onClick={onClose}>Hủy</button><button disabled={busy||!form.title.trim()} onClick={onSave}>{busy?"Đang tạo…":"Tạo truyện"}</button></div></Modal>}
 
@@ -167,3 +242,11 @@ function EmptySelect({text}){return <div className="empty"><div className="empty
 function Modal({title,onClose,children}){return <div className="modalBack" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="modalHead"><h2>{title}</h2><button className="iconBtn" onClick={onClose}>×</button></div>{children}</div></div>}
 
 createRoot(document.getElementById("root")).render(<App/>);
+
+
+// STORYFORGE_V4_WORKSPACE_PERSIST
+try {
+  window.addEventListener("beforeunload", () => {
+    window.dispatchEvent(new Event("storyforge-workspace-state"));
+  });
+} catch {}

@@ -57,3 +57,8 @@ npm run build
 ```
 
 Thêm 3 Environment Variables tương ứng với `.env`.
+
+## V4
+- Editable story information.
+- Workspace position persistence.
+- AI suggestion/history persistence utilities.
