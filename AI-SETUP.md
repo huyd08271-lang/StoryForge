@@ -1,22 +1,22 @@
-# StoryForge AI — Gemini
-
-Bản này chuyển AI backend từ OpenAI sang Google Gemini.
+# StoryForge PRO Total — AI setup
 
 ## Vercel Environment Variables
+- `GEMINI_API_KEY`: Gemini API key của bạn. Chỉ đặt ở Vercel, không đưa vào mã frontend.
+- `GEMINI_MODEL`: model Gemini bạn muốn dùng. Nếu tài khoản của bạn hỗ trợ Gemini 3.1 Flash Lite, dùng `gemini-3.1-flash-lite`.
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_SITE_ACCESS_PASSWORD`
 
-Thêm:
+## Supabase migration
+Sau các schema/migration cũ đang có, chạy `supabase/migration-pro.sql` một lần. Migration bổ sung ảnh bìa + trạng thái truyện, lịch sử phiên bản chương và RPC quản trị thành viên.
 
-- `GEMINI_API_KEY` = API key tạo từ Google AI Studio
-- `GEMINI_MODEL` = `gemini-3.1-flash-lite`
+## 4 công cụ AI
+1. **Viết tiếp** — chọn 300–500, 800–1.000, 1.500–2.000, 2.000–3.000 hoặc yêu cầu riêng.
+2. **Gợi ý diễn biến** — đưa ra các hướng phát triển để tác giả lựa chọn.
+3. **Gợi ý lời thoại** — bám tính cách và quan hệ nhân vật.
+4. **Kiểm tra logic** — đối chiếu Canon, nhân vật, thế giới, timeline và chương hiện tại.
 
-Chọn Production (và Preview nếu muốn test preview).
+AI chỉ đề xuất. Bản thảo và Canon không tự bị thay đổi; chỉ `Viết tiếp` mới có nút `Chèn vào bản thảo`.
 
-Không đặt Gemini API key trong biến có tiền tố `VITE_`.
-
-Sau khi thay code và push GitHub, Vercel sẽ deploy lại. Nếu chỉ thay Environment Variables, hãy Redeploy.
-
-## Lưu ý
-
-Gói Gemini Pro dùng trên ứng dụng Gemini và Gemini API là hai hệ thống tính phí/quyền truy cập riêng. Bản này mặc định dùng `gemini-3.1-flash-lite` để phù hợp với Gemini API Free Tier; không dùng API của `gemini-3.1-pro-preview` trong cấu hình miễn phí.
-
-Không commit API key vào GitHub.
+## Lịch sử hội ý
+Kết quả AI được lưu vào `ai_conversations` theo user/truyện/chương để có thể mở lại.

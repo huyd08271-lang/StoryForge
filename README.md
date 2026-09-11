@@ -1,64 +1,15 @@
-# StoryForge Online — Full Functions
+# StoryForge PRO Total v6
 
-Bản này dùng **giao diện Online làm nền** và lưu dữ liệu thật trên Supabase.
+Bản tổng thể của StoryForge: giao diện dark studio, thư viện truyện có bìa, editor tự lưu, lịch sử phiên bản, dữ liệu nhân vật/thế giới/timeline/Canon/ghi chú, trợ lý Gemini với 4 chế độ, lịch sử hội ý cloud và quản trị thành viên.
 
-## Chức năng cloud
+## Cài đặt
+1. Giữ `.env` cũ của project.
+2. Đảm bảo Vercel có `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_ACCESS_PASSWORD` và `GEMINI_API_KEY`, `GEMINI_MODEL`.
+3. Trong Supabase SQL Editor chạy theo thứ tự các schema/migration cũ đang dùng, sau đó chạy `supabase/migration-pro.sql`.
+4. Push GitHub. Vercel sẽ build lại.
 
-- Đăng ký / đăng nhập / đăng xuất
-- Admin duyệt tài khoản
-- Tạo / mở / xóa truyện
-- Tạo / sửa tên / xóa chương
-- Editor chương
-- Autosave + nút Lưu ngay
-- Word count
-- Nhân vật
-- Thế giới
-- Dòng thời gian
-- Hộp thư đến
-- Canon
-- Responsive cho điện thoại
-- Dữ liệu truyện/chương không phụ thuộc máy đang dùng
+## AI
+API nằm ở `/api/ai.js` và dùng Gemini server-side để không lộ API key trên trình duyệt. 4 chế độ: Viết tiếp, Gợi ý diễn biến, Gợi ý lời thoại, Kiểm tra logic.
 
-## Mô hình
-
-PC/điện thoại → Vercel → Supabase Cloud
-
-`localhost` chỉ dùng để test code. Bản người dùng cuối là URL Vercel.
-
-## Chạy local
-
-Đứng trong thư mục có `package.json`:
-
-```powershell
-npm.cmd install
-npm.cmd run dev
-```
-
-Tạo `.env` từ `.env.example` và điền:
-
-```env
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-VITE_SITE_ACCESS_PASSWORD=...
-```
-
-## Supabase
-
-Nếu database đã chạy `schema-v2.sql`, có thể chạy thêm `schema-v3.sql` để thêm index, quyền stories/chapters và tự cập nhật `updated_at`.
-
-Không dùng `service_role` key ở frontend.
-
-## Deploy Vercel
-
-Push source lên GitHub, rồi Vercel build bằng:
-
-```text
-npm run build
-```
-
-Thêm 3 Environment Variables tương ứng với `.env`.
-
-## V4
-- Editable story information.
-- Workspace position persistence.
-- AI suggestion/history persistence utilities.
+## Lưu ý
+Bản thảo không tự bị AI sửa. Chỉ khi tác giả bấm `Chèn vào bản thảo` thì kết quả Viết tiếp mới được đưa vào chương.

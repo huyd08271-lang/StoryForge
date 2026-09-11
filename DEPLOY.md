@@ -1,10 +1,19 @@
-# Deploy nhanh
+# Deploy StoryForge PRO Total
 
-1. Tạo Supabase project và chạy `supabase/schema.sql`.
-2. Tạo file `.env` cho local.
-3. Test `npm install` + `npm run dev`.
-4. Đưa source lên GitHub (KHÔNG commit `.env`).
-5. Import repo vào Vercel.
-6. Thêm VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_SITE_ACCESS_PASSWORD trong Environment Variables.
-7. Deploy.
-8. Điện thoại 4G mở URL Vercel. Dữ liệu lấy từ Supabase, không phụ thuộc PC.
+1. Giữ nguyên `.git` và `.env` của project hiện tại.
+2. Copy toàn bộ nội dung bản PRO Total vào thư mục project, không xóa `.git`.
+3. Đảm bảo Vercel có các biến môi trường trong `AI-SETUP.md`.
+4. Trong Supabase SQL Editor chạy `schema.sql`, `schema-v2.sql`, `schema-v3.sql`, `migration-v4.sql` nếu project chưa từng chạy chúng; sau đó chạy `migration-pro.sql`.
+5. Kiểm tra tài khoản Admin có `is_admin=true` và `status='approved'`.
+6. Commit và push:
+
+```powershell
+git add .
+git commit -m "StoryForge PRO Total"
+git push
+```
+
+Vercel sẽ tự deploy commit mới.
+
+## Nếu Vercel báo build error
+Mở Deployments → deployment lỗi → Build Logs và lấy phần lỗi đầu tiên. Không xóa project hoặc `.git` để thử lại.
